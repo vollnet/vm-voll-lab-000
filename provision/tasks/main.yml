@@ -1,0 +1,458 @@
+
+# Ansible Playbook On-promise Environment
+# 
+#
+
+# Application name + Worker + Version
+#
+# Worker: Devops Environment [Operation = OP, Development = DV, tester (pre-production) = TT, homolog = HM, production = PD)
+#
+# Vs 0.0.0
+#    | | |
+#    | | |
+#    | | Revision Patch (changes, otimizations, corrections)
+#    | |
+#    | Structure Modify (Add new functions, removed functions)
+#    |
+#    Stage (0: development, >=1: production) 
+# 
+# Examples:
+# 
+# AppType AppName             Worker   Version    Status
+# -----------------------------------------------------------------------
+# WebApp: Clinical Schedule   OP       0.1.0      Launched
+#                             OP       0.1.1      Revision
+#                             OP       0.2.0      Launched 
+#                             OP       0.2.1      Released
+#                             DV       0.1.0      Launched
+#                             DV       0.1.1      Revision
+#                             DV       0.1.1      Released
+#                             TT       0.1.0      Launched
+#                             TT       0.1.1      Revision
+#                             TT       0.1.1      Released
+#                             HM       0.1.0      Launched
+#                             HM       0.1.1      Revision
+#                             HM       0.1.1      Released
+#                             PD       0.1.0      Launched
+#                             PD       0.1.1      Revision
+#                             PD       0.1.1      Released
+# End-of-Cycle                PD       1.0.0      Destined         
+
+#
+# Stage-0 Update/Upgrade & Configurations   <<<<<<<<<<<<<<<<<<<<<<
+#
+
+#
+#    - NodeJS && Nodemon
+#    - Docker && docker-compose
+#    - Portainer
+#    - TypeScript 
+#    - Python
+#   
+
+---
+
+#
+# Stage-1 Update/Upgrade & Initial Configurations   <<<<<<<<<<<<<<<<<<<<<<
+#
+- name: Vollnet DEVOPS Environment 3Tri@2024
+  hosts: all
+  become_user: vagrant
+  become_method: sudo
+  become: true
+
+- name: VM Provision Start ............
+  hosts: all
+  gather_facts: no
+  vars:
+    docker_compose_version: "2.29.1" 
+
+  tasks: 
+    - name: Set timezone to America/Sao_Paulo
+      user:
+        name: vagrant
+        shell: timedatectl set-timezone America/Sao_Paulo
+        groups: sudo
+        append: yes
+      become: yes
+
+    - name: current date initial automation
+      debug:
+        msg: "{{'%Y-%m-%d'|strftime }}"
+      become: yes
+ 
+    - name: current time initial automation
+      debug:
+        msg: "{{ '%H:%M:%S'|strftime }}"
+      become: yes
+    
+    - name: Set User Group for the VM-Vagrant
+      user:
+        name: vagrant
+        shell: /bin/bash
+        groups: sudo
+        append: yes
+      become: yes
+
+    - name: Permission for user vagrant
+      lineinfile:
+        path: /etc/sudoers
+        state: present
+        regexp: '^%vagrant'
+        line: '%vagrant ALL=(ALL) NOPASSWD: ALL'
+        validate: 'visudo -cf %s'
+      become: yes
+
+    - name: Stop and Start ssh service
+      service:
+        name: ssh
+        state: restarted
+      become: yes
+    
+    - name: Host IP ADDRESS
+      debug:
+        msg: "{{ ansible_enp0s8.ipv4.address }}"
+      become: yes
+ 
+    - name: Initial ping VM target
+      ping:
+
+    - name: Update apt cache
+      apt: update_cache=yes cache_valid_time=3600
+      become: yes
+
+    - name: Upgrade all apt packages
+      apt: upgrade=dist
+      become: yes
+
+
+#
+# Stage-2 Basic Install   <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+#
+
+    - name: Install dependencies
+      apt:
+        name: "{{ packages }}"
+        state: present
+        update_cache: yes
+      vars:
+        packages:
+        - apt-transport-https
+        - ca-certificates
+        - curl
+        - software-properties-common
+        - gnupg-agent
+        - net-tools
+        - gcc
+        - make
+        - tar
+        - vim
+        - wget
+        - xz-utils
+        - libreadline-dev
+        - openssl
+        - libncursesw5-dev
+        - libssl-dev
+        - libsqlite3-dev
+        - tk-dev
+        - libgdbm-dev
+        - libc6-dev
+        - libbz2-dev
+        - libffi-dev
+        - zlib1g-dev
+        - build-essential
+        - liblzma-dev
+        - tcl-dev
+        - tree
+        - zip
+        - unzip
+      become: yes  
+
+
+#
+# Stage-3 Python Install   <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+#
+
+    - name: Install Python 2.7
+      package:
+        name: python2.7
+        state: present
+        update_cache: yes
+      become: yes
+
+    - name: Python 3.11 - Check that the /usr/local/bin/python3.11 exists
+      stat:
+        path: /usr/local/bin/python3.11
+      tags: python
+      register: python_result
+      become: yes
+
+    - name: Update apt-cache
+      apt: update_cache=yes
+      tags: packages, python
+      when: python_result.stat.exists == False
+      become: yes
+
+    - name: Extract python 3.11.4 into /tmp
+      unarchive:
+        src: https://www.python.org/ftp/python/3.11.4/Python-3.11.4.tar.xz
+        dest: /tmp/
+        remote_src: yes
+      tags: packages, python
+      become: yes
+
+    - name: Configure python 3.11.4
+      shell: ./configure chdir=/tmp/Python-3.11.4
+      tags: packages, python
+      when: python_result.stat.exists == False
+      become: yes
+
+    - name: Make
+      shell: make chdir=/tmp/Python-3.11.4
+      tags: packages, python
+      when: python_result.stat.exists == False
+      become: yes
+
+    - name: Install Python 3.11.4
+      shell: make install chdir=/tmp/Python-3.11.4
+      become_user: root
+      tags: packages, python
+      when: python_result.stat.exists == False
+      become: yes
+
+    - name: Remove tmp files used for Python 3.11.4 installation
+      file: path={{ item }} state=absent
+      with_items:
+        - /tmp/Python.tar.xz
+        - /tmp/Python-3.11.4
+      tags: packages, python
+      when: python_result.stat.exists == False
+      become: yes
+
+    - name: Install requirements for package install
+      package:
+        name:
+          - python3-pip
+          - python3-dev
+          - virtualenv
+        state: present
+      become: true
+
+#
+# Stage-4 Node.JS && NPM  <<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+#
+    # Veja: https://geekflare.com/nodejs-monitoring-tools/
+
+    - name: NodeSource package key
+      apt_key:
+        state: present
+        url: https://deb.nodesource.com/gpgkey/nodesource.gpg.key
+      become: yes
+
+    - name: NodeSource Repository 
+      shell: 'curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -'
+      become: yes
+
+    - name: Install NodeJS
+      apt:
+        state: present
+        name: nodejs
+      become: yes
+
+    - name: Install nodemon
+      npm:
+        name: nodemon
+        global: yes
+        state: present
+      become: yes
+
+    #
+    # TypeScript Install
+    #
+
+    - name: Install TypeScript
+      npm:
+        name: "typescript"
+        global: yes
+        state: present
+      become: yes
+
+    #
+    # Check versiom
+    #
+    # $ tsc -v
+
+#
+# Stage-5 Docker & docker-compose Install   <<<<<<<<<<<<<<<<<<<<<<<<<<<
+#
+    - name: Add an apt signing key for Docker
+      apt_key:
+        url: https://download.docker.com/linux/ubuntu/gpg
+        state: present
+      become: yes
+
+    - name: Add apt repository for stable version
+      apt_repository:
+        repo: deb [arch=amd64] https://download.docker.com/linux/ubuntu focal stable
+        state: present
+      become: yes
+
+    - name: Install Docker
+      apt:
+        name: "{{ packages }}"
+        state: present
+        update_cache: yes
+      vars:
+        packages:
+        - docker-ce
+        - docker-ce-cli
+        - containerd.io
+      become: yes
+     
+    - name: Add user to docker group
+      user:
+        name: "{{ansible_user}}"
+        group: docker
+      become: yes
+
+    - name: Download docker-compose {{ docker_compose_version }}
+      get_url:
+        url : https://github.com/docker/compose/releases/download/{{ docker_compose_version }}/docker-compose-Linux-x86_64
+        dest: ~/docker-compose
+        mode: '+x'
+      register: is_installed
+      failed_when: no
+      changed_when: no
+      become: yes
+
+    - name: Check docker-compose exists
+      stat: path=~/docker-compose
+      register: docker_compose
+      become: yes
+
+    - name: Move docker-compose to /usr/local/bin/docker-compose
+      command: mv ~/docker-compose /usr/local/bin/docker-compose
+      when: docker_compose.stat.exists
+      register: is_installed
+      failed_when: no
+      changed_when: no
+      become: yes
+
+    - name: Start Docker service
+      service:
+        name: docker
+        state: started
+        enabled: yes
+      become: yes
+
+    - name: Add remote "<user-vmbox>" to "docker" group
+      user:
+        name: "vagrant"
+        groups: "docker"
+        append: yes
+      tags:
+        - docker
+      become: yes
+ 
+    #
+    # Docker Portainer - Vs 2.20.X for Docker Vs 26.X.Y and up
+    #                    Vs 2.20.3 and up with support for MicroK8S 1.30 
+    #
+    # see: https://docs.portainer.io/start/install-ce/server/docker/linux
+    
+    - name: Creating the VOLUME for Portainer
+      command: docker volume create portainer_data
+      register: is_installed
+      failed_when: no
+      changed_when: no
+      become: yes      
+     
+    - name: create the Portainer container
+      command: docker run -d -p 8000:8000 -p 9000:9000 --name portainer \
+               --restart=always \
+               -v /var/run/docker.sock:/var/run/docker.sock \
+               -v portainer_data:/data \
+               portainer/portainer-ce:latest
+      register: is_installed
+      failed_when: no
+      changed_when: no
+      become: yes
+
+    # Access container Portainer Server
+    #
+    # User: admin
+    # Pw:   Portainer#20@ (Change pw after first login)
+    #
+    # Acess: <Ip-VM_Work>:9000
+
+#
+# Stage-6 Vagrant user configuration   <<<<<<<<<<<<<<<<<<<<<<<<<<<
+#
+
+    - name: Set PasswordAuthentication for the VM-Vagrant
+      lineinfile: dest=/etc/ssh/sshd_config regexp='^#?PasswordAuthentication' line='PasswordAuthentication yes'
+      become: yes
+
+    - name: Set User Group for the VM-Vagrant
+      user:
+        name: vagrant
+        shell: /bin/bash
+        groups: sudo
+        append: yes
+      become: yes
+
+    - name: Add user vagrant to docker group
+      user:
+        name: vagrant
+        groups: docker
+        append: yes
+      become: yes
+
+    - name: Permission for user vagrant
+      lineinfile:
+        path: /etc/sudoers
+        state: present
+        regexp: '^%vagrant'
+        line: '%vagrant ALL=(ALL) NOPASSWD: ALL'
+        validate: 'visudo -cf %s'
+      become: yes
+
+    - name: Stop and Start ssh service
+      service:
+        name: ssh
+        state: restarted
+      become: yes
+
+
+#
+# Stage-99 Finishing   <<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+#                           
+    - name: Remove old packages
+      apt:
+        autoremove: yes
+      become: yes
+
+    - name: Update all packages
+      apt:
+        update_cache: yes
+        upgrade: dist
+      become: yes
+
+    - name: Final ping VM target !!
+      ping:
+
+    # end automation ...
+
+    - name: current date initial automation
+      debug:
+        msg: "{{'%Y-%m-%d'|strftime }}"
+      become: yes
+ 
+    - name: current time initial automation
+      debug:
+        msg: "{{ '%H:%M:%S'|strftime }}"
+      become: yes
+
+#
+# End 
+#

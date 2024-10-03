@@ -1,0 +1,39 @@
+---
+# 
+#               [  vm-voll-101 a vm-voll-199  ] vm-voll-000 Based Devops]
+#
+# VBox Fixed IP [10.10.125.101 a 10.10.125.199] [10.10.125.99] 
+#               [192.168.0.101 a 192.168.0.199] [192.168.0.99]
+#
+# VBox IP ADDRESS
+ip_address:     10.10.125.99
+#
+# VBox SO Linux Distro
+type_vbox:      "bento/ubuntu-22.04"
+#
+# sync folders
+#
+sync_host:      "./sync_folder_host"
+sync_work:      "/home/vagrant/sync_folder_work" 
+#
+# hardware custumization
+#
+name_bridge:    "wlo1" # LAN: "ens33", "ens160", "eth0"| Wi-Fi: "wlo1" 
+#
+vm_memory:      "1024"
+#
+vm_cpus:        "1"
+#
+# Vbox User Name: developer, tester, operation, support, architect, business, management, ... , others
+vm_hostname:    "developer"
+#
+# VBox Machine Name - GUI Virtualbox
+vm_name:        "vm-voll-lab-000"
+#
+# VBox Virtual Name
+project:        "project-lab-000"
+#
+# VBox Provisioning 
+ansible_path:   "/home/developer/vms-vagrant/vm-voll-lab-000/provision/tasks/main.yml"
+#
+...
